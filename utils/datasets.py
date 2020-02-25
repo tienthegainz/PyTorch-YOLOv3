@@ -26,7 +26,8 @@ def pad_to_square(img, pad_value):
 
 
 def resize(image, size):
-    image = F.interpolate(image.unsqueeze(0), size=size, mode="nearest").squeeze(0)
+    image = F.interpolate(image.unsqueeze(0), size=size,
+                          mode="nearest").squeeze(0)
     return image
 
 
@@ -62,7 +63,8 @@ class ListDataset(Dataset):
             self.img_files = file.readlines()
 
         self.label_files = [
-            path.replace("images", "labels").replace(".png", ".txt").replace(".jpg", ".txt")
+            path.lower().replace("images", "labels").replace(
+                ".png", ".txt").replace(".jpg", ".txt").replace(".jpeg", ".txt").replace(".jpeg", ".txt")
             for path in self.img_files
         ]
         self.img_size = img_size
@@ -123,11 +125,16 @@ class ListDataset(Dataset):
 
             targets = torch.zeros((len(boxes), 6))
             targets[:, 1:] = boxes
-
+        else:
+            print('Not found {}'.format(label_path))
         # Apply augmentations
         if self.augment:
-            if np.random.random() < 0.5:
-                img, targets = horisontal_flip(img, targets)
+            try:
+                if np.random.random() < 0.5:
+                    img, targets = horisontal_flip(img, targets)
+            except Exception as err:
+                print(err)
+                print('ERROR in ', img_path)
 
         return img_path, img, targets
 
@@ -141,7 +148,8 @@ class ListDataset(Dataset):
         targets = torch.cat(targets, 0)
         # Selects new image size every tenth batch
         if self.multiscale and self.batch_count % 10 == 0:
-            self.img_size = random.choice(range(self.min_size, self.max_size + 1, 32))
+            self.img_size = random.choice(
+                range(self.min_size, self.max_size + 1, 32))
         # Resize images to input shape
         imgs = torch.stack([resize(img, self.img_size) for img in imgs])
         self.batch_count += 1
