@@ -48,6 +48,10 @@ if __name__ == "__main__":
                         help="if True computes mAP every tenth batch")
     parser.add_argument("--multiscale_training", default=True,
                         help="allow for multi-scale training")
+    parser.add_argument("--save_path", type=str,
+                        default="checkpoints", help="path to save weight")
+    parser.add_argument("--lr", type=float, default=1e-4,
+                        help="learning rate")
     opt = parser.parse_args()
     print(opt)
 
@@ -87,7 +91,7 @@ if __name__ == "__main__":
         collate_fn=dataset.collate_fn,
     )
 
-    optimizer = torch.optim.Adam(model.parameters())
+    optimizer = torch.optim.Adam(model.parameters(), lr=opt.lr)
 
     metrics = [
         "grid_size",
@@ -166,6 +170,12 @@ if __name__ == "__main__":
 
             model.seen += imgs.size(0)
 
+        if epoch % opt.checkpoint_interval == 0:
+            torch.save(model.state_dict(),
+                       os.path.join(opt.save_path, 'yolov3_epoch_{}.pth'.format(epoch)))
+            print('Saved {}'.format(os.path.join(
+                opt.save_path, 'yolov3_epoch_{}.pth'.format(epoch))))
+
         if epoch % opt.evaluation_interval == 0:
             print("\n---- Evaluating Model ----")
             # Evaluate the model on the validation set
@@ -179,7 +189,6 @@ if __name__ == "__main__":
                 batch_size=8,
             )
             evaluation_metrics = [
-                ("val_precision", precision.mean()),
                 ("val_recall", recall.mean()),
                 ("val_mAP", AP.mean()),
                 ("val_f1", f1.mean()),
@@ -192,7 +201,3 @@ if __name__ == "__main__":
                 ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
             print(AsciiTable(ap_table).table)
             print(f"---- mAP {AP.mean()}")
-
-        if epoch % opt.checkpoint_interval == 0:
-            torch.save(model.state_dict(),
-                       f"checkpoints/yolov3_ckpt_%d.pth" % epoch)
